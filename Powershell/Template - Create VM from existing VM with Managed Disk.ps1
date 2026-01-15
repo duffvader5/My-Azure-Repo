@@ -2,14 +2,14 @@
 $targetSubscriptionId = "target subscription"
 $sourceResourceGroupName = "source resource group"
 $targetResourceGroupName = "target resource group"
-
+$targetRegion = "region"
 $VMName = “source vm name”
 #$availabilitySet = "source availability set"
 $targetNICName = "target nic"
 $targetVNetName = "target vnet"
 $subnetName = "target subnet"
 $addressPrefix = "target vnet ip address"
-$diagStorageAccountName = "storprodgiszan"
+$diagStorageAccountName = "storage account name"
 #$PlanName = 'byol-1061'
 #$PlanProduct = 'arcgis-enterprise-106'
 #$PlanPublisher = 'esri'
@@ -38,10 +38,10 @@ Set-azContext -Subscription $targetSubscriptionId
 $targetResourceGroup = Get-azResourceGroup -Name $targetResourceGroupName -Location "south africa north" -InformationAction SilentlyContinue -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 if ($targetResourceGroup -eq $null)
 {
-    New-azResourceGroup -Name $targetResourceGroupName -Location "south africa north" -InformationAction SilentlyContinue
+    New-azResourceGroup -Name $targetResourceGroupName -Location $targetRegion -InformationAction SilentlyContinue
 }
 
-$newDiskConfig = New-azDiskConfig -SourceResourceId $sourceManagedDisk.Id -Location "south africa north" -CreateOption Copy
+$newDiskConfig = New-azDiskConfig -SourceResourceId $sourceManagedDisk.Id -Location $targetRegion -CreateOption Copy
 $newDisk = New-azDisk -Disk $newDiskConfig -DiskName $sourceManagedDisk.Name -ResourceGroupName $targetResourceGroupName
 
 # Add logic to copy data disks if any
@@ -52,19 +52,19 @@ $vNet = Get-azVirtualNetwork -Name $targetVNetName -ResourceGroupName $targetRes
 if ($vNet -eq $null)
 {
     $newSubnet = New-azVirtualNetworkSubnetConfig -Name $subnetName -AddressPrefix $addressPrefix -InformationAction SilentlyContinue
-    $vNet = New-azVirtualNetwork -Name $targetVNetName -ResourceGroupName $targetResourceGroupName -Location "south africa north" -AddressPrefix $addressPrefix -Subnet $newSubnet -InformationAction SilentlyContinue
+    $vNet = New-azVirtualNetwork -Name $targetVNetName -ResourceGroupName $targetResourceGroupName -Location $targetRegion -AddressPrefix $addressPrefix -Subnet $newSubnet -InformationAction SilentlyContinue
 }
 $newSubnet = Get-azVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vNet -InformationAction SilentlyContinue
 
 
 # Create the new network interface
-$newNIC = New-azNetworkInterface -Name $targetNICName -ResourceGroupName $targetResourceGroupName -SubnetId $newSubnet.Id -Location "south africa north" -InformationAction SilentlyContinue
+$newNIC = New-azNetworkInterface -Name $targetNICName -ResourceGroupName $targetResourceGroupName -SubnetId $newSubnet.Id -Location $targetRegion -InformationAction SilentlyContinue
 
 # Accept licence terms for the publisher plan
 #Get-azMarketplaceTerms -Publisher $PlanPublisher -Product $PlanProduct -Name $PlanName | Set-azMarketplaceTerms -Accept
 
 # Create the availability set
-$targetAvSet = New-azAvailabilitySet -ResourceGroupName $targetResourceGroupName -Name $availabilitySet -Location "south africa north" -Sku 'Aligned' -PlatformUpdateDomainCount 2 -PlatformFaultDomainCount 2 -InformationAction SilentlyContinue
+$targetAvSet = New-azAvailabilitySet -ResourceGroupName $targetResourceGroupName -Name $availabilitySet -Location $targetRegion -Sku 'Aligned' -PlatformUpdateDomainCount 2 -PlatformFaultDomainCount 2 -InformationAction SilentlyContinue
 
 # Create the virtual machine
 $newVM = New-azVMConfig -VMName $sourceVM.Name -VMSize $sourceVM.HardwareProfile.VmSize -AvailabilitySetId $targetAvSet.Id
@@ -76,3 +76,4 @@ $newVM = Add-azVMNetworkInterface -VM $newVM -Id $newNIC.Id
 #$newVM.Plan.Publisher = $PlanPublisher
 $newVM = Set-azVMBootDiagnostics -VM $newVM -Enable -StorageAccountName $diagStorageAccountName -ResourceGroupName $targetResourceGroupName
 New-azVM -VM $newVM -ResourceGroupName $targetResourceGroupName -Location "south africa north" 
+
